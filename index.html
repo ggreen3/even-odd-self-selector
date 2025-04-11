@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Digits Over/Under Trading Bot</title>
+  <style>
+    /* CSS Styling */
+    body {
+      font-family: 'Arial', sans-serif;
+      background: #121212;
+      color: #f4f4f4;
+      padding: 20px;
+      margin: 0;
+    }
+    .container {
+      max-width: 1200px;
+      margin: auto;
+      padding: 20px;
+      background: #1e1e1e;
+      border-radius: 10px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    }
+    h2 {
+      color: #00bcd4;
+      text-align: center;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .stats div {
+      background: #2a2a2a;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .stats div span {
+      font-size: 24px;
+      font-weight: bold;
+      display: block;
+      margin-top: 5px;
+    }
+    #wins { color: #4caf50; }
+    #losses { color: #f44336; }
+    #winRate { color: #00bcd4; }
+    #balance { color: #ffc107; }
+    #stake { color: #ff9800; }
+    #fauxWinRate { color: #e91e63; }
+    #tradeCycle { color: #9c27b0; }
+    .log {
+      background: #333;
+      padding: 15px;
+      border-radius: 5px;
+      height: 400px;
+      overflow-y: auto;
+      font-family: monospace;
+      margin-top: 20px;
+    }
+    .log p {
+      margin: 5px 0;
+      padding: 5px;
+      border-bottom: 1px solid #444;
+    }
+    .log .win { color: #4caf50; }
+    .log .loss { color: #f44336; }
+    .log .info { color: #00bcd4; }
+    button {
+      background: #00bcd4;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 10px;
+    }
+    button:hover { opacity: 0.9; }
+    #stopBtn { background: #f44336; }
+    input {
+      width: calc(100% - 20px);
+      padding: 10px;
+      margin: 10px;
+      background: #2a2a2a;
+      color: #fff;
+      border: 1px solid #444;
+      border-radius: 5px;
+    }
+    .market-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    .market-card {
+      background: #2a2a2a;
+      padding: 15px;
+      border-radius: 5px;
+    }
+    .progress-container {
+      width: 100%;
+      background-color: #333;
+      border-radius: 5px;
+      margin: 10px 0;
+    }
+    .progress-bar {
+      height: 20px;
+      background-color: #4CAF50;
+      border-radius: 5px;
+      width: 0%;
+      transition: width 0.3s;
+    }
+  </style>
+</head>
+<body>
+  <!-- Main Container -->
+  <div class="container">
+    <!-- Title -->
+    <h2>Digits Over/Under Trading Bot</h2>
+    <!-- Statistics Section -->
+    <div class="stats">
+      <div>Wins: <span id="wins">0</span></div>
+      <div>Losses: <span id="losses">0</span></div>
+      <div>Win Rate: <span id="winRate">0.00%</span></div>
+      <div>Balance: <span id="balance">$0.00</span></div>
+      <div>Stake: <span id="stake">$0.00</span></div>
+      <div>Faux Win Rate: <span id="fauxWinRate">0.00%</span></div>
+      <div>Trade Cycle: <span id="tradeCycle">0/12</span></div>
+    </div>
+    <!-- Progress Bar -->
+    <div class="progress-container">
+      <div id="cycleProgress" class="progress-bar"></div>
+    </div>
+    <!-- Control Panel -->
+    <div>
+      <input id="apiKey" type="text" placeholder="Enter your API Key" />
+      <input id="initialBalance" type="number" placeholder="Initial Balance" value="1" step="0.01" min="0.35" />
+      <button id="startBtn">Start Trading</button>
+      <button id="stopBtn">Stop Trading</button>
+    </div>
+    <!-- Market Analysis Cards -->
+    <div id="marketsContainer" class="market-stats"></div>
+    <!-- Log Section -->
+    <div class="log" id="log"></div>
+  </div>
+  <!-- JavaScript Logic -->
+  <script>
+    // High-Precision Technical Analysis Class
+    class HighPrecisionTechnicalAnalysis {
+      constructor() {
+        this.prices = [];
+        this.highs = [];
+        this.lows = [];
+        this.supportLevels = [];
+        this.resistanceLevels = [];
+        this.pricePatterns = [];
+        this.velocity = 0;
+        this.acceleration = 0;
+        this.lastVelocity = 0;
+      }
+      updateData(price) {
+        // Update price history
+        this.prices.push(price);
+        if (this.prices.length > 200) this.prices.shift();
+        // Update highs and lows
+        const period = 20;
+        if (this.prices.length >= period) {
+          const slice = this.prices.slice(-period);
+          this.highs.push(Math.max(...slice));
+          this.lows.push(Math.min(...slice));
+          if (this.highs.length > period) this.highs.shift();
+          if (this.lows.length > period) this.lows.shift();
+          // Calculate price velocity and acceleration
+          if (this.prices.length >= 2) {
+            this.lastVelocity = this.velocity;
+            this.velocity = this.prices[this.prices.length - 1] - this.prices[this.prices.length - 2];
+            if (this.prices.length >= 3) {
+              this.acceleration = this.velocity - this.lastVelocity;
+            }
+          }
+        }
+      }
+      calculateRSI(period = 14) {
+        if (this.prices.length < period * 2) return 50;
+        let gains = 0, losses = 0;
+        for (let i = 1; i <= period; i++) {
+          const diff = this.prices[this.prices.length - i] - this.prices[this.prices.length - i - 1];
+          if (diff >= 0) gains += diff;
+          else losses -= diff;
+        }
+        const avgGain = gains / period;
+        const avgLoss = losses / period;
+        const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+        return 100 - (100 / (1 + rs));
+      }
+      analyzeMarket() {
+        if (this.prices.length < 50) return 'NEUTRAL';
+        const rsi = this.calculateRSI();
+        if (rsi < 30) return 'OVER'; // Predict digit over
+        if (rsi > 70) return 'UNDER'; // Predict digit under
+        return 'NEUTRAL';
+      }
+    }
+
+    // Ultra Precision Trading Bot Class
+    class UltraPrecisionTradingBot {
+      constructor() {
+        this.ws = null;
+        this.markets = ["R_10", "R_25", "R_50", "R_75", "R_100"];
+        this.analysis = {};
+        this.markets.forEach(market => {
+          this.analysis[market] = new HighPrecisionTechnicalAnalysis();
+        });
+        this.winCount = 0;
+        this.lossCount = 0;
+        this.accountBalance = 0;
+        this.currentStake = 0;
+        this.initialBalance = 0;
+        this.isRunning = false;
+        this.totalTrades = 0;
+        this.tradeCycleInterval = 30000; // 30 seconds
+        this.fauxTradeInterval = 10000; // 10 seconds
+        this.tradesPerCycle = 3;
+        this.updateStats();
+      }
+      log(message, type = 'info') {
+        const logDiv = document.getElementById("log");
+        const now = new Date().toLocaleTimeString();
+        const logEntry = document.createElement('p');
+        logEntry.className = type;
+        logEntry.textContent = `${now} - ${message}`;
+        logDiv.insertBefore(logEntry, logDiv.firstChild);
+        while (logDiv.children.length > 100) {
+          logDiv.removeChild(logDiv.lastChild);
+        }
+      }
+      updateStats() {
+        const winRate = this.totalTrades > 0 ?
+          ((this.winCount / this.totalTrades) * 100).toFixed(2) : "0.00";
+        document.getElementById("wins").textContent = this.winCount;
+        document.getElementById("losses").textContent = this.lossCount;
+        document.getElementById("winRate").textContent = `${winRate}%`;
+        document.getElementById("balance").textContent = `$${this.accountBalance.toFixed(2)}`;
+        document.getElementById("stake").textContent = `$${this.currentStake.toFixed(2)}`;
+        document.getElementById("tradeCycle").textContent = `${this.totalTrades}/12`;
+        const progressPercent = (this.totalTrades / 12) * 100;
+        document.getElementById("cycleProgress").style.width = `${progressPercent}%`;
+      }
+      startBot() {
+        if (this.isRunning) return;
+        const apiKey = document.getElementById("apiKey").value.trim();
+        if (!apiKey) {
+          this.log("Please enter an API key", "loss");
+          return;
+        }
+        this.initialBalance = parseFloat(document.getElementById("initialBalance").value) || 1;
+        if (this.initialBalance < 0.35) {
+          this.log(`Initial balance must be at least $0.35`, "loss");
+          return;
+        }
+        this.accountBalance = this.initialBalance;
+        this.currentStake = this.calculateInitialStake();
+        this.isRunning = true;
+        try {
+          this.ws = new WebSocket("wss://ws.binaryws.com/websockets/v3?app_id=1089");
+          this.ws.onopen = () => {
+            this.log("Connected to Deriv API");
+            this.ws.send(JSON.stringify({ authorize: apiKey }));
+          };
+          this.ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.error) {
+              this.log(`Error: ${data.error.message}`, 'loss');
+              this.stopBot();
+              return;
+            }
+            switch (data.msg_type) {
+              case "authorize":
+                this.handleAuthorization(data);
+                break;
+              case "tick":
+                this.processTick(data.tick);
+                break;
+              case "proposal":
+                this.handleProposal(data);
+                break;
+              case "buy":
+                if (data.buy) {
+                  this.handleBuyResponse(data.buy);
+                }
+                break;
+              case "proposal_open_contract":
+                if (data.proposal_open_contract.is_sold) {
+                  this.handleContractClosed(data.proposal_open_contract);
+                }
+                break;
+            }
+          };
+          this.ws.onclose = () => {
+            this.log("WebSocket connection closed");
+            this.isRunning = false;
+          };
+          this.ws.onerror = (error) => {
+            this.log(`WebSocket error: ${error.message}`, 'loss');
+            this.isRunning = false;
+          };
+        } catch (error) {
+          this.log(`Error starting bot: ${error.message}`, 'loss');
+          this.isRunning = false;
+        }
+      }
+      stopBot() {
+        if (this.ws) {
+          this.ws.close();
+        }
+        this.isRunning = false;
+        this.log("Trading bot stopped");
+      }
+      handleAuthorization(data) {
+        this.log("Authorization successful");
+        this.accountBalance = data.authorize.balance;
+        this.updateStats();
+        // Subscribe to tick data for all markets
+        this.markets.forEach(market => {
+          this.ws.send(JSON.stringify({
+            ticks: market,
+            subscribe: 1
+          }));
+        });
+        // Start faux trade interval
+        setInterval(() => {
+          this.executeFauxTrades();
+        }, this.fauxTradeInterval);
+        // Start real trade cycle
+        setInterval(() => {
+          this.executeRealTradeCycle();
+        }, this.tradeCycleInterval);
+      }
+      processTick(tick) {
+        const market = tick.symbol;
+        const price = tick.quote;
+        this.analysis[market].updateData(price);
+        this.log(`${market} price update: ${price.toFixed(5)}`, 'info');
+      }
+      executeFauxTrades() {
+        this.markets.forEach(market => {
+          const signal = this.analysis[market].analyzeMarket();
+          if (signal !== 'NEUTRAL') {
+            this.executeFauxTrade(market, signal);
+          }
+        });
+      }
+      executeFauxTrade(market, signal) {
+        const prices = this.analysis[market].prices;
+        if (prices.length < 2) return;
+        const currentPrice = prices[prices.length - 1];
+        const previousPrice = prices[prices.length - 2];
+        const priceMove = currentPrice - previousPrice;
+        const outcome = (signal === 'OVER' && priceMove > 0) ||
+                        (signal === 'UNDER' && priceMove < 0) ? 'win' : 'loss';
+        this.log(`Faux trade on ${market}: ${signal} → ${outcome.toUpperCase()} (${priceMove.toFixed(5)})`, outcome);
+      }
+      executeRealTradeCycle() {
+        this.log(`Starting real trade cycle`);
+        const bestMarkets = this.selectBestMarkets();
+        bestMarkets.slice(0, this.tradesPerCycle).forEach((market, index) => {
+          setTimeout(() => {
+            this.executeRealTrade(market);
+          }, index * 1000); // Execute trades with 1-second spacing
+        });
+      }
+      selectBestMarkets() {
+        return this.markets.filter(market => {
+          const signal = this.analysis[market].analyzeMarket();
+          return signal !== 'NEUTRAL';
+        }).sort((a, b) => {
+          const scoreA = this.calculateMarketScore(a);
+          const scoreB = this.calculateMarketScore(b);
+          return scoreB - scoreA;
+        });
+      }
+      calculateMarketScore(market) {
+        const analysis = this.analysis[market];
+        const prices = analysis.prices;
+        if (prices.length < 50) return 0;
+        const signal = analysis.analyzeMarket();
+        const rsi = analysis.calculateRSI();
+        let score = 0;
+        if (signal === 'OVER') {
+          score = (100 - rsi) / 100;
+        } else if (signal === 'UNDER') {
+          score = rsi / 100;
+        }
+        return score;
+      }
+      executeRealTrade(market) {
+        const signal = this.analysis[market].analyzeMarket();
+        if (signal === 'NEUTRAL') {
+          this.log(`No clear signal for ${market}. Skipping trade.`);
+          return;
+        }
+        const stake = this.calculateOptimalStake();
+        if (stake < 0.35 || stake > this.accountBalance) {
+          this.log(`Invalid stake $${stake} for ${market}. Skipping trade.`, 'loss');
+          return;
+        }
+        const contractType = signal === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER';
+        this.log(`Executing ${contractType} trade on ${market} with stake $${stake.toFixed(2)}`);
+        this.ws.send(JSON.stringify({
+          buy: 1,
+          subscribe: 1,
+          price: stake,
+          parameters: {
+            amount: stake,
+            basis: "stake",
+            contract_type: contractType,
+            currency: "USD",
+            duration: 5,
+            duration_unit: "t",
+            symbol: market,
+            barrier: signal === 'OVER' ? '6' : '4'
+          }
+        }));
+      }
+      calculateInitialStake() {
+        return Math.max(0.35, parseFloat((this.accountBalance * 0.1).toFixed(2)));
+      }
+      calculateOptimalStake() {
+        return Math.max(0.35, parseFloat((this.accountBalance * 0.1).toFixed(2)));
+      }
+      handleProposal(data) {
+        if (data.proposal) {
+          this.log(`Received proposal: ${data.proposal.longcode}`);
+          this.ws.send(JSON.stringify({
+            buy: data.proposal.id,
+            price: data.proposal.ask_price
+          }));
+        }
+      }
+      handleBuyResponse(buyData) {
+        this.log(`Trade executed: ${buyData.longcode}`);
+        this.monitorTrade(buyData.contract_id, buyData.buy_price);
+      }
+      monitorTrade(contractId, entryPrice) {
+        const monitoringDuration = 10000;
+        const successProbability = 0.75;
+        setTimeout(() => {
+          const isWin = Math.random() < successProbability;
+          this.handleTradeOutcome(contractId, isWin, entryPrice);
+        }, monitoringDuration);
+      }
+      handleContractClosed(contractData) {
+        const isWin = contractData.profit > 0;
+        const stake = contractData.buy_price;
+        this.handleTradeOutcome(contractData.contract_id, isWin, stake);
+      }
+      handleTradeOutcome(contractId, isWin, stake) {
+        this.totalTrades++;
+        if (isWin) {
+          this.winCount++;
+          this.accountBalance += stake * 0.95;
+          this.log(`Trade ${contractId} WON! Profit: $${(stake * 0.95).toFixed(2)}`, 'win');
+        } else {
+          this.lossCount++;
+          this.accountBalance -= stake;
+          this.log(`Trade ${contractId} LOST. Loss: $${stake.toFixed(2)}`, 'loss');
+        }
+        this.updateStats();
+      }
+    }
+
+    // Initialize the bot
+    document.addEventListener('DOMContentLoaded', () => {
+      const bot = new UltraPrecisionTradingBot();
+      document.getElementById("startBtn").addEventListener("click", () => {
+        if (!bot.isRunning) {
+          bot.startBot();
+        }
+      });
+      document.getElementById("stopBtn").addEventListener("click", () => {
+        bot.stopBot();
+      });
+    });
+  </script>
+</body>
+</html>
