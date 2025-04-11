@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Digits Over/Under Trading Bot</title>
+  <title>Even/Odd Trading Bot</title>
   <style>
     /* CSS Styling */
     body {
@@ -117,7 +117,7 @@
   <!-- Main Container -->
   <div class="container">
     <!-- Title -->
-    <h2>Digits Over/Under Trading Bot</h2>
+    <h2>Even/Odd Trading Bot</h2>
     <!-- Statistics Section -->
     <div class="stats">
       <div>Wins: <span id="wins">0</span></div>
@@ -150,55 +150,24 @@
     class HighPrecisionTechnicalAnalysis {
       constructor() {
         this.prices = [];
-        this.highs = [];
-        this.lows = [];
-        this.supportLevels = [];
-        this.resistanceLevels = [];
-        this.pricePatterns = [];
-        this.velocity = 0;
-        this.acceleration = 0;
-        this.lastVelocity = 0;
+        this.evenOddPatterns = [];
       }
       updateData(price) {
         // Update price history
         this.prices.push(price);
         if (this.prices.length > 200) this.prices.shift();
-        // Update highs and lows
-        const period = 20;
-        if (this.prices.length >= period) {
-          const slice = this.prices.slice(-period);
-          this.highs.push(Math.max(...slice));
-          this.lows.push(Math.min(...slice));
-          if (this.highs.length > period) this.highs.shift();
-          if (this.lows.length > period) this.lows.shift();
-          // Calculate price velocity and acceleration
-          if (this.prices.length >= 2) {
-            this.lastVelocity = this.velocity;
-            this.velocity = this.prices[this.prices.length - 1] - this.prices[this.prices.length - 2];
-            if (this.prices.length >= 3) {
-              this.acceleration = this.velocity - this.lastVelocity;
-            }
-          }
-        }
-      }
-      calculateRSI(period = 14) {
-        if (this.prices.length < period * 2) return 50;
-        let gains = 0, losses = 0;
-        for (let i = 1; i <= period; i++) {
-          const diff = this.prices[this.prices.length - i] - this.prices[this.prices.length - i - 1];
-          if (diff >= 0) gains += diff;
-          else losses -= diff;
-        }
-        const avgGain = gains / period;
-        const avgLoss = losses / period;
-        const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
-        return 100 - (100 / (1 + rs));
+        // Update even/odd patterns
+        const lastDigit = Math.floor(price * 10) % 10;
+        this.evenOddPatterns.push(lastDigit % 2 === 0 ? 'EVEN' : 'ODD');
+        if (this.evenOddPatterns.length > 100) this.evenOddPatterns.shift();
       }
       analyzeMarket() {
-        if (this.prices.length < 50) return 'NEUTRAL';
-        const rsi = this.calculateRSI();
-        if (rsi < 30) return 'OVER'; // Predict digit over
-        if (rsi > 70) return 'UNDER'; // Predict digit under
+        if (this.evenOddPatterns.length < 50) return 'NEUTRAL';
+        const last10 = this.evenOddPatterns.slice(-10);
+        const evenCount = last10.filter(x => x === 'EVEN').length;
+        const oddCount = last10.filter(x => x === 'ODD').length;
+        if (evenCount > 7) return 'EVEN'; // Predict EVEN
+        if (oddCount > 7) return 'ODD';   // Predict ODD
         return 'NEUTRAL';
       }
     }
@@ -355,11 +324,10 @@
         const prices = this.analysis[market].prices;
         if (prices.length < 2) return;
         const currentPrice = prices[prices.length - 1];
-        const previousPrice = prices[prices.length - 2];
-        const priceMove = currentPrice - previousPrice;
-        const outcome = (signal === 'OVER' && priceMove > 0) ||
-                        (signal === 'UNDER' && priceMove < 0) ? 'win' : 'loss';
-        this.log(`Faux trade on ${market}: ${signal} → ${outcome.toUpperCase()} (${priceMove.toFixed(5)})`, outcome);
+        const lastDigit = Math.floor(currentPrice * 10) % 10;
+        const outcome = (signal === 'EVEN' && lastDigit % 2 === 0) ||
+                        (signal === 'ODD' && lastDigit % 2 !== 0) ? 'win' : 'loss';
+        this.log(`Faux trade on ${market}: ${signal} → ${outcome.toUpperCase()} (Last Digit: ${lastDigit})`, outcome);
       }
       executeRealTradeCycle() {
         this.log(`Starting real trade cycle`);
@@ -382,15 +350,14 @@
       }
       calculateMarketScore(market) {
         const analysis = this.analysis[market];
-        const prices = analysis.prices;
-        if (prices.length < 50) return 0;
+        const patterns = analysis.evenOddPatterns;
+        if (patterns.length < 50) return 0;
         const signal = analysis.analyzeMarket();
-        const rsi = analysis.calculateRSI();
         let score = 0;
-        if (signal === 'OVER') {
-          score = (100 - rsi) / 100;
-        } else if (signal === 'UNDER') {
-          score = rsi / 100;
+        if (signal === 'EVEN') {
+          score = patterns.filter(x => x === 'EVEN').length / patterns.length;
+        } else if (signal === 'ODD') {
+          score = patterns.filter(x => x === 'ODD').length / patterns.length;
         }
         return score;
       }
@@ -405,7 +372,7 @@
           this.log(`Invalid stake $${stake} for ${market}. Skipping trade.`, 'loss');
           return;
         }
-        const contractType = signal === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER';
+        const contractType = signal === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD';
         this.log(`Executing ${contractType} trade on ${market} with stake $${stake.toFixed(2)}`);
         this.ws.send(JSON.stringify({
           buy: 1,
@@ -418,8 +385,7 @@
             currency: "USD",
             duration: 5,
             duration_unit: "t",
-            symbol: market,
-            barrier: signal === 'OVER' ? '6' : '4'
+            symbol: market
           }
         }));
       }
